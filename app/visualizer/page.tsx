@@ -1,59 +1,73 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import ReactFlow, { Node, Edge, Controls, Background } from 'reactflow'
 import 'reactflow/dist/style.css'
-
-// Mock data
-const mockDatabases = [
-  { 
-    id: 1, 
-    name: 'Users DB', 
-    tables: [
-      { id: 'users', label: 'Users' },
-      { id: 'orders', label: 'Orders' },
-      { id: 'products', label: 'Products' }
-    ],
-    relationships: [
-      { source: 'users', target: 'orders', label: 'has many' },
-      { source: 'orders', target: 'products', label: 'contains' }
-    ]
-  },
-  // Add more mock databases here
-]
+import { getDatabases, getRelations } from '@/lib/api'
 
 export default function VisualizerPage() {
-  const [selectedDatabase, setSelectedDatabase] = useState(mockDatabases[0])
+  const [dbmsList, setDbmsList] = useState<string[]>([])
+  const [selectedDbms, setSelectedDbms] = useState('')
+  const [databases, setDatabases] = useState<string[]>([])
+  const [selectedDatabase, setSelectedDatabase] = useState('')
+  const [relations, setRelations] = useState<any>(null)
+  useEffect(() => {
+    // In a real application, you would fetch the list of DBMS from the backend
+    setDbmsList(['MySQL', 'PostgreSQL', 'SQLite'])
+  }, [])
 
-  const nodes: Node[] = selectedDatabase.tables.map((table, index) => ({
-    id: table.id,
-    data: { label: table.label },
+  useEffect(() => {
+    if (selectedDbms) {
+      getDatabases(selectedDbms).then(data => {
+        setDatabases(data[0].databases)
+      })
+    }
+  }, [selectedDbms])
+
+  useEffect(() => {
+    if (selectedDatabase) {
+      getRelations(selectedDatabase).then(data => {
+        setRelations(data)
+      })
+    }
+  }, [selectedDatabase])
+
+  const nodes: Node[] = relations ? relations.relations.map((relation: any, index: number) => ({
+    id: relation.table_name,
+    data: { label: relation.table_name },
     position: { x: 250 * index, y: 100 }
-  }))
+  })) : []
 
-  const edges: Edge[] = selectedDatabase.relationships.map((rel, index) => ({
+  const edges: Edge[] = relations ? relations.relations.map((relation: any, index: number) => ({
     id: `e${index}`,
-    source: rel.source,
-    target: rel.target,
-    label: rel.label,
+    source: relation.table_name,
+    target: relation.ref_table,
+    label: `${relation.col_name} -> ${relation.ref_col}`,
     type: 'smoothstep'
-  }))
+  })) : []
 
   return (
     <div className="h-screen flex flex-col">
       <h1 className="text-3xl font-bold mb-6">Database Visualizer</h1>
-      <div className="mb-4">
-        <Select 
-          value={selectedDatabase.name} 
-          onValueChange={(value) => setSelectedDatabase(mockDatabases.find(db => db.name === value) || mockDatabases[0])}
-        >
+      <div className="mb-4 flex space-x-4">
+        <Select value={selectedDbms} onValueChange={setSelectedDbms}>
           <SelectTrigger>
-            <SelectValue placeholder="Select a database" />
+            <SelectValue placeholder="Select DBMS" />
           </SelectTrigger>
           <SelectContent>
-            {mockDatabases.map(db => (
-              <SelectItem key={db.id} value={db.name}>{db.name}</SelectItem>
+            {dbmsList.map(dbms => (
+              <SelectItem key={dbms} value={dbms}>{dbms}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedDatabase} onValueChange={setSelectedDatabase}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select Database" />
+          </SelectTrigger>
+          <SelectContent>
+            {databases.map(db => (
+              <SelectItem key={db} value={db}>{db}</SelectItem>
             ))}
           </SelectContent>
         </Select>
